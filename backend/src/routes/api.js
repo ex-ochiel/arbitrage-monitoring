@@ -24,7 +24,7 @@ async function callGateway(action, payload) {
 
 // ==================== SYSTEM ====================
 
-router.post('/sync/manual', async (req, res) => {
+router.all('/sync/manual', async (req, res) => {
   try {
     const accountId = req.query.accountId;
     // If accountId is provided, sync that specific account, otherwise sync all.
