@@ -4,7 +4,7 @@ import { botLogicService } from '../services/api';
 import { useAccount } from '../context/AccountContext';
 
 export default function LogicBot() {
-  const { currentAccount } = useAccount();
+  const { selectedAccount } = useAccount();
   const [rules, setRules] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -12,18 +12,18 @@ export default function LogicBot() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (currentAccount) {
+    if (selectedAccount) {
       loadRules();
     } else {
       setRules([]);
       setIsLoading(false);
     }
-  }, [currentAccount]);
+  }, [selectedAccount]);
 
   const loadRules = async () => {
     setIsLoading(true);
     try {
-      const data = await botLogicService.getAll(currentAccount.id);
+      const data = await botLogicService.getAll(selectedAccount.id);
       setRules(data);
     } catch (error) {
       console.error('Failed to load bot rules:', error);
@@ -56,11 +56,11 @@ export default function LogicBot() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!currentAccount) return;
+    if (!selectedAccount) return;
     
     setIsSaving(true);
     try {
-      await botLogicService.create(currentAccount.id, form.campaignId, form.threshold);
+      await botLogicService.create(selectedAccount.id, form.campaignId, form.threshold);
       setIsModalOpen(false);
       setForm({ campaignId: '', threshold: '1.0' });
       loadRules();
@@ -71,7 +71,7 @@ export default function LogicBot() {
     }
   };
 
-  if (!currentAccount) {
+  if (!selectedAccount) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-slate-400">
         <Bot size={48} className="mb-4 opacity-20" />
@@ -107,7 +107,7 @@ export default function LogicBot() {
             Logic Bot runs automatically every time your data syncs (e.g. every 5-15 mins).
             If a country's CPM falls below your specified threshold, the bot will <b>automatically</b> exclude it from your PopAds campaign.
             <br/><br/>
-            Currently bound to Account Pair: <span className="font-bold text-white">{currentAccount.label}</span>
+            Currently bound to Account Pair: <span className="font-bold text-white">{selectedAccount.label}</span>
           </p>
         </div>
       </div>
