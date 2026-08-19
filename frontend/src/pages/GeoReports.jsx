@@ -21,6 +21,7 @@ export default function GeoReports() {
   const [geoData, setGeoData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isForceSyncing, setIsForceSyncing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const { selectedAccountId } = useAccount();
 
@@ -62,6 +63,21 @@ export default function GeoReports() {
     }
   };
 
+  const handleForceSync = async () => {
+    setIsForceSyncing(true);
+    try {
+      const res = await settingsService.triggerSync();
+      if (res.success) {
+        clearApiCache();
+        await fetchData(false);
+      }
+    } catch (err) {
+      console.error("Sync failed:", err);
+    } finally {
+      setIsForceSyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
@@ -85,8 +101,17 @@ export default function GeoReports() {
             className="bg-cardBg border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neonGreen"
           />
           <button 
+            onClick={handleForceSync}
+            disabled={isForceSyncing || isSyncing}
+            className="bg-transparent border border-slate-600 hover:bg-slate-800 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+            title="Force real-time sync from Ad Networks"
+          >
+            <RefreshCw size={16} className={isForceSyncing ? "animate-spin text-neonGreen" : ""} /> 
+            {isForceSyncing ? "Syncing..." : "Force Sync"}
+          </button>
+          <button 
             onClick={handleRefresh}
-            disabled={isSyncing}
+            disabled={isSyncing || isForceSyncing}
             className="bg-neonGreen hover:bg-emerald-400 text-darkBg px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <RefreshCw size={16} className={isSyncing ? "animate-spin" : ""} /> 

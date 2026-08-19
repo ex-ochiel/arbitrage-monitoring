@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isForceSyncing, setIsForceSyncing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [alerts, setAlerts] = useState([]);
   const [toast, setToast] = useState(null);
@@ -94,6 +95,23 @@ export default function Dashboard() {
       showToast("Refresh failed: " + err.message, "error");
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleForceSync = async () => {
+    setIsForceSyncing(true);
+    try {
+      const res = await settingsService.triggerSync();
+      if (res.success) {
+        clearApiCache();
+        await fetchDashboardData(false);
+        await fetchAlerts();
+        showToast("Real-time data synced successfully!", "success");
+      }
+    } catch (err) {
+      showToast("Sync failed: " + (err.response?.data?.error || err.message), "error");
+    } finally {
+      setIsForceSyncing(false);
     }
   };
 
@@ -168,8 +186,17 @@ export default function Dashboard() {
             className="bg-cardBg border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neonGreen"
           />
           <button
+            onClick={handleForceSync}
+            disabled={isForceSyncing || isSyncing}
+            className="bg-transparent border border-slate-600 hover:bg-slate-800 text-slate-300 px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+            title="Force real-time sync from Ad Networks"
+          >
+            <RefreshCw size={16} className={isForceSyncing ? "animate-spin text-neonGreen" : ""} />
+            {isForceSyncing ? "Syncing..." : "Force Sync"}
+          </button>
+          <button
             onClick={handleRefresh}
-            disabled={isSyncing}
+            disabled={isSyncing || isForceSyncing}
             className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <RefreshCw size={16} className={isSyncing ? "animate-spin" : ""} />
