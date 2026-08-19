@@ -115,14 +115,17 @@ export const accountService = {
   },
   create: async (label, popadsApiKey, adsterraApiKey) => {
     const response = await api.post('/accounts', { label, popadsApiKey, adsterraApiKey });
+    clearApiCache();
     return response.data;
   },
   update: async (id, data) => {
     const response = await api.put(`/accounts/${id}`, data);
+    clearApiCache();
     return response.data;
   },
   delete: async (id) => {
     const response = await api.delete(`/accounts/${id}`);
+    clearApiCache();
     return response.data;
   }
 };
