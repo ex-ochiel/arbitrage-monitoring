@@ -22,6 +22,37 @@ async function callGateway(action, payload) {
   }
 }
 
+// Middleware to check if user owns the account
+async function verifyOwnership(req, res, next) {
+  // Cron jobs don't have req.user (bypassed via CRON_SECRET), skip check
+  if (!req.user) return next();
+  
+  // Super admin can access everything
+  if (req.user.role === 'admin') return next();
+
+  // Find accountId from any common source
+  let accountId = req.query.accountId || req.body.accountId;
+  if (!accountId && req.route && req.route.path === '/accounts/:id') {
+    accountId = req.params.id;
+  }
+  
+  if (!accountId) return next();
+
+  try {
+    const account = await prisma.accountPair.findUnique({ where: { id: accountId } });
+    if (!account) return res.status(404).json({ error: 'Account not found' });
+    
+    // If account has an owner, and it's not the current user, deny access
+    // (Allow access to legacy accounts where userId is null)
+    if (account.userId && account.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied to this account' });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 // ==================== SYSTEM ====================
 
 router.all('/sync/manual', async (req, res) => {
@@ -78,7 +109,17 @@ router.get('/debug/popads-raw', async (req, res) => {
 // GET all account pairs (masked keys)
 router.get('/accounts', async (req, res) => {
   try {
+    let where = {};
+    if (req.user && req.user.role !== 'admin') {
+      where = {
+        OR: [
+          { userId: req.user.id },
+          { userId: null } // Allow access to legacy accounts for smooth transition
+        ]
+      };
+    }
     const pairs = await prisma.accountPair.findMany({
+      where,
       orderBy: { createdAt: 'asc' }
     });
     const mapped = pairs.map(p => {
@@ -112,7 +153,8 @@ router.post('/accounts', async (req, res) => {
         label,
         popadsApiKey: encrypt(popadsApiKey),
         adsterraApiKey: encrypt(adsterraApiKey),
-        isActive: true
+        isActive: true,
+        userId: req.user ? req.user.id : null // Bind to the current user
       }
     });
 
@@ -123,7 +165,7 @@ router.post('/accounts', async (req, res) => {
 });
 
 // PUT update account pair
-router.put('/accounts/:id', async (req, res) => {
+router.put('/accounts/:id', verifyOwnership, async (req, res) => {
   try {
     const { id } = req.params;
     const { label, popadsApiKey, adsterraApiKey, isActive } = req.body;
@@ -150,7 +192,7 @@ router.put('/accounts/:id', async (req, res) => {
 });
 
 // DELETE account pair (cascades to all related data)
-router.delete('/accounts/:id', async (req, res) => {
+router.delete('/accounts/:id', verifyOwnership, async (req, res) => {
   try {
     const { id } = req.params;
     await prisma.accountPair.delete({ where: { id } });
@@ -159,6 +201,9 @@ router.delete('/accounts/:id', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Protect all subsequent routes with ownership verification
+router.use(verifyOwnership);
 
 // ==================== DASHBOARD ====================
 
@@ -496,7 +541,14 @@ router.get('/reports/campaign-profitability', async (req, res) => {
 router.get('/alerts', async (req, res) => {
   try {
     const accountId = req.query.accountId;
-    const where = accountId ? { accountPairId: accountId } : {};
+    let where = accountId ? { accountPairId: accountId } : {};
+    if (!accountId && req.user && req.user.role !== 'admin') {
+      const userAccounts = await prisma.accountPair.findMany({
+        where: { OR: [{ userId: req.user.id }, { userId: null }] },
+        select: { id: true }
+      });
+      where.accountPairId = { in: userAccounts.map(a => a.id) };
+    }
     const alerts = await prisma.alert.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -511,7 +563,14 @@ router.get('/alerts', async (req, res) => {
 router.get('/alerts/summary', async (req, res) => {
   try {
     const accountId = req.query.accountId;
-    const where = accountId ? { accountPairId: accountId } : {};
+    let where = accountId ? { accountPairId: accountId } : {};
+    if (!accountId && req.user && req.user.role !== 'admin') {
+      const userAccounts = await prisma.accountPair.findMany({
+        where: { OR: [{ userId: req.user.id }, { userId: null }] },
+        select: { id: true }
+      });
+      where.accountPairId = { in: userAccounts.map(a => a.id) };
+    }
 
     const unreadCount = await prisma.alert.count({ where: { ...where, isRead: false } });
     const recentAlerts = await prisma.alert.findMany({
@@ -537,7 +596,14 @@ router.patch('/alerts/:id/read', async (req, res) => {
 router.patch('/alerts/read-all', async (req, res) => {
   try {
     const accountId = req.query.accountId;
-    const where = accountId ? { accountPairId: accountId, isRead: false } : { isRead: false };
+    let where = accountId ? { accountPairId: accountId, isRead: false } : { isRead: false };
+    if (!accountId && req.user && req.user.role !== 'admin') {
+      const userAccounts = await prisma.accountPair.findMany({
+        where: { OR: [{ userId: req.user.id }, { userId: null }] },
+        select: { id: true }
+      });
+      where.accountPairId = { in: userAccounts.map(a => a.id) };
+    }
     await prisma.alert.updateMany({ where, data: { isRead: true } });
     res.json({ success: true });
   } catch (error) {
@@ -618,7 +684,14 @@ router.get('/recommendations', async (req, res) => {
 router.get('/sync-logs', async (req, res) => {
   try {
     const accountId = req.query.accountId;
-    const where = accountId ? { accountPairId: accountId } : {};
+    let where = accountId ? { accountPairId: accountId } : {};
+    if (!accountId && req.user && req.user.role !== 'admin') {
+      const userAccounts = await prisma.accountPair.findMany({
+        where: { OR: [{ userId: req.user.id }, { userId: null }] },
+        select: { id: true }
+      });
+      where.accountPairId = { in: userAccounts.map(a => a.id) };
+    }
     const logs = await prisma.syncLog.findMany({
       where,
       orderBy: { createdAt: 'desc' },
