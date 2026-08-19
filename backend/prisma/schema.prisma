@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   // bcrypt hashed
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// An AccountPair bundles 1 PopAds key + 1 Adsterra key together.
+// All data (campaigns, reports, alerts) belongs to a specific pair.
+model AccountPair {
+  id             String   @id @default(uuid())
+  label          String   // e.g. "Akun Utama", "Akun Backup"
+  popadsApiKey   String   // encrypted via AES-256
+  adsterraApiKey String   // encrypted via AES-256
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  campaigns  PopadsCampaign[]
+  reports    DailyProfitReport[]
+  syncLogs   SyncLog[]
+  alerts     Alert[]
+}
+
+model PopadsCampaign {
+  id           String   @id @default(uuid())
+  campaignId   String
+  name         String
+  status       String
+  geo          String
+  bid          Float
+  dailyBudget  Float
+  accountPairId String
+  accountPair   AccountPair @relation(fields: [accountPairId], references: [id], onDelete: Cascade)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([campaignId, accountPairId])
+}
+
+model DailyProfitReport {
+  id           String   @id @default(uuid())
+  date         DateTime @db.Date
+  campaignId   String
+  country      String
+  sourceId     String?
+  spend        Float    @default(0)
+  revenue      Float    @default(0)
+  profit       Float    @default(0)
+  roi          Float    @default(0)
+  bid          Float    @default(0)
+  cpm          Float    @default(0)
+  impPopads    Int      @default(0)
+  impAdsterra  Int      @default(0)
+  accountPairId String
+  accountPair   AccountPair @relation(fields: [accountPairId], references: [id], onDelete: Cascade)
+  
+  @@unique([date, campaignId, country, accountPairId])
+}
+
+model SyncLog {
+  id            String   @id @default(uuid())
+  provider      String
+  status        String   // 'success' | 'failed'
+  message       String?
+  accountPairId String?
+  accountPair   AccountPair? @relation(fields: [accountPairId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+}
+
+model Alert {
+  id            String   @id @default(uuid())
+  type          String   // 'roi_drop', 'high_spend', 'no_revenue'
+  severity      String   // 'critical', 'warning', 'info'
+  campaignId    String?
+  campaignName  String?
+  message       String
+  value         Float?   // e.g. ROI value that triggered alert
+  isRead        Boolean  @default(false)
+  accountPairId String?
+  accountPair   AccountPair? @relation(fields: [accountPairId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+}
