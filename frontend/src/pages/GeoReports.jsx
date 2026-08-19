@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Globe, ArrowDownRight, ArrowUpRight, RefreshCw, Download } from 'lucide-react';
-import { reportService, settingsService, exportService } from '../services/api';
+import { reportService, settingsService, exportService, clearApiCache } from '../services/api';
 import Pagination from '../components/ui/Pagination';
 import SortableHeader, { useTableControls } from '../components/ui/SortableHeader';
 import { useAccount } from '../context/AccountContext';
@@ -50,15 +50,13 @@ export default function GeoReports() {
     fetchData();
   }, [selectedDate]);
 
-  const handleSync = async () => {
+  const handleRefresh = async () => {
     setIsSyncing(true);
     try {
-      const res = await settingsService.triggerSync();
-      if (res.success) {
-        await fetchData(false);
-      }
+      clearApiCache();
+      await fetchData(false);
     } catch (err) {
-      console.error("Sync failed:", err);
+      console.error("Refresh failed:", err);
     } finally {
       setIsSyncing(false);
     }
@@ -87,12 +85,12 @@ export default function GeoReports() {
             className="bg-cardBg border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neonGreen"
           />
           <button 
-            onClick={handleSync}
+            onClick={handleRefresh}
             disabled={isSyncing}
             className="bg-neonGreen hover:bg-emerald-400 text-darkBg px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <RefreshCw size={16} className={isSyncing ? "animate-spin" : ""} /> 
-            {isSyncing ? "Syncing..." : "Sync Data"}
+            {isSyncing ? "Fetching..." : "Get Data"}
           </button>
           <button 
             onClick={() => exportService.downloadGeo(selectedDate, selectedAccountId)}

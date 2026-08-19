@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Target, AlertTriangle, RefreshCw, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { dashboardService, alertService, settingsService, campaignService } from '../services/api';
+import { dashboardService, alertService, settingsService, campaignService, clearApiCache } from '../services/api';
 import { useAccount } from '../context/AccountContext';
 
 // Toast notification component
@@ -83,17 +83,15 @@ export default function Dashboard() {
     };
   }, [fetchDashboardData, fetchAlerts]);
 
-  const handleSync = async () => {
+  const handleRefresh = async () => {
     setIsSyncing(true);
     try {
-      const res = await settingsService.triggerSync();
-      if (res.success) {
-        await fetchDashboardData(false);
-        await fetchAlerts();
-        showToast("Data synced successfully!", "success");
-      }
+      clearApiCache();
+      await fetchDashboardData(false);
+      await fetchAlerts();
+      showToast("Data refreshed successfully!", "success");
     } catch (err) {
-      showToast("Sync failed: " + (err.response?.data?.error || err.message), "error");
+      showToast("Refresh failed: " + err.message, "error");
     } finally {
       setIsSyncing(false);
     }
@@ -170,12 +168,12 @@ export default function Dashboard() {
             className="bg-cardBg border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-neonGreen"
           />
           <button
-            onClick={handleSync}
+            onClick={handleRefresh}
             disabled={isSyncing}
             className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <RefreshCw size={16} className={isSyncing ? "animate-spin" : ""} />
-            {isSyncing ? "Syncing..." : "Sync Now"}
+            {isSyncing ? "Fetching..." : "Get Data"}
           </button>
         </div>
       </div>
