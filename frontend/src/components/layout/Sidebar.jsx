@@ -21,6 +21,7 @@ const navItems = [
     icon: Settings,
     subItems: [
       { name: 'API Connect', path: '/settings' },
+      { name: 'Logic Bot', path: '/settings/logic-bot' },
       { name: 'Account Setting', path: '/settings/accounts', adminOnly: true }
     ]
   },

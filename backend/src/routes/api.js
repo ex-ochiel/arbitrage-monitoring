@@ -3,6 +3,7 @@ const router = express.Router();
 const prisma = require('../utils/prisma');
 const { encrypt, decrypt } = require('../utils/crypto');
 const axios = require('axios');
+const { runLogicBot } = require('../services/botEngine');
 
 async function callGateway(action, payload) {
   const url = `${process.env.SUPABASE_URL || 'https://plpgetjaeervwivznkdz.supabase.co'}/functions/v1/sync-ads-data`;
@@ -61,6 +62,19 @@ router.all('/sync/manual', async (req, res) => {
     const result = await callGateway(action, payload);
     
     if (result.success) {
+      // Run Logic Bot in the background AFTER successful sync
+      if (accountId) {
+        runLogicBot(accountId).catch(console.error);
+      } else {
+        // If sync all, we need to run for all active accounts
+        prisma.accountPair.findMany({ where: { isActive: true } })
+          .then(accounts => {
+            for (const acc of accounts) {
+              runLogicBot(acc.id).catch(console.error);
+            }
+          }).catch(console.error);
+      }
+
       res.json({ success: true, message: result.message });
     } else {
       res.status(400).json({ success: false, error: result.error || result.message });
@@ -626,6 +640,74 @@ router.get('/sources', async (req, res) => {
     }
     sources.sort((a, b) => b.spend - a.spend);
     res.json(sources);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== BOT LOGIC ====================
+
+router.get('/bot-logic', async (req, res) => {
+  try {
+    const accountId = req.query.accountId;
+    if (!accountId) return res.status(400).json({ error: 'accountId is required' });
+
+    const rules = await prisma.botLogic.findMany({
+      where: { accountPairId: accountId },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(rules);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/bot-logic', async (req, res) => {
+  try {
+    const accountId = req.body.accountId;
+    const { campaignId, ruleType, threshold } = req.body;
+    
+    if (!accountId || !campaignId || threshold === undefined) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const rule = await prisma.botLogic.create({
+      data: {
+        campaignId,
+        ruleType: ruleType || 'REMOVE_COUNTRY_LOW_CPM',
+        threshold: parseFloat(threshold),
+        isActive: true,
+        accountPairId: accountId
+      }
+    });
+
+    res.json({ success: true, rule });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/bot-logic/:id/toggle', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const rule = await prisma.botLogic.update({
+      where: { id },
+      data: { isActive }
+    });
+
+    res.json({ success: true, rule });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/bot-logic/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.botLogic.delete({ where: { id } });
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

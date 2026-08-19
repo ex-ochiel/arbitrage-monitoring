@@ -130,6 +130,29 @@ export const accountService = {
   }
 };
 
+// --- BOT LOGIC ---
+export const botLogicService = {
+  getAll: async (accountId) => {
+    const response = await api.get('/bot-logic', { params: { accountId } });
+    return response.data;
+  },
+  create: async (accountId, campaignId, threshold) => {
+    const response = await api.post('/bot-logic', { accountId, campaignId, threshold, ruleType: 'REMOVE_COUNTRY_LOW_CPM' });
+    clearApiCache();
+    return response.data;
+  },
+  toggleActive: async (id, isActive) => {
+    const response = await api.put(`/bot-logic/${id}/toggle`, { isActive });
+    clearApiCache();
+    return response.data;
+  },
+  delete: async (id) => {
+    const response = await api.delete(`/bot-logic/${id}`);
+    clearApiCache();
+    return response.data;
+  }
+};
+
 // --- DASHBOARD ---
 export const dashboardService = {
   getOverview: async (date, accountId) => {

@@ -39,6 +39,7 @@ model AccountPair {
   reports    DailyProfitReport[]
   syncLogs   SyncLog[]
   alerts     Alert[]
+  botLogics  BotLogic[]
 }
 
 model PopadsCampaign {
@@ -97,5 +98,16 @@ model Alert {
   isRead        Boolean  @default(false)
   accountPairId String?
   accountPair   AccountPair? @relation(fields: [accountPairId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+}
+
+model BotLogic {
+  id            String   @id @default(uuid())
+  campaignId    String   // ID Kampanye PopAds yang ingin diawasi
+  ruleType      String   @default("REMOVE_COUNTRY_LOW_CPM")
+  threshold     Float    // Batas CPM (Misal: 1)
+  isActive      Boolean  @default(true)
+  accountPairId String
+  accountPair   AccountPair @relation(fields: [accountPairId], references: [id], onDelete: Cascade)
   createdAt     DateTime @default(now())
 }
