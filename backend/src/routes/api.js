@@ -31,10 +31,7 @@ async function verifyOwnership(req, res, next) {
   if (req.user.role === 'admin') return next();
 
   // Find accountId from any common source
-  let accountId = req.query.accountId || req.body.accountId;
-  if (!accountId && req.route && req.route.path === '/accounts/:id') {
-    accountId = req.params.id;
-  }
+  let accountId = req.query.accountId || req.body.accountId || req.params.id;
   
   if (!accountId) return next();
 
@@ -43,8 +40,7 @@ async function verifyOwnership(req, res, next) {
     if (!account) return res.status(404).json({ error: 'Account not found' });
     
     // If account has an owner, and it's not the current user, deny access
-    // (Allow access to legacy accounts where userId is null)
-    if (account.userId && account.userId !== req.user.id) {
+    if (account.userId !== req.user.id) {
       return res.status(403).json({ error: 'Access denied to this account' });
     }
     next();
@@ -111,12 +107,7 @@ router.get('/accounts', async (req, res) => {
   try {
     let where = {};
     if (req.user && req.user.role !== 'admin') {
-      where = {
-        OR: [
-          { userId: req.user.id },
-          { userId: null } // Allow access to legacy accounts for smooth transition
-        ]
-      };
+      where = { userId: req.user.id };
     }
     const pairs = await prisma.accountPair.findMany({
       where,
