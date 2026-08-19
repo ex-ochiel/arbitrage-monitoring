@@ -29,4 +29,11 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = { authMiddleware, JWT_SECRET };
+const isAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden. Admin access required.' });
+  }
+  next();
+};
+
+module.exports = { authMiddleware, isAdmin, JWT_SECRET };

@@ -8,7 +8,6 @@ export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
   const [needsSetup, setNeedsSetup] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
 
@@ -17,8 +16,6 @@ export default function Login({ onLoginSuccess }) {
       try {
         const res = await authService.checkSetupStatus();
         setNeedsSetup(res.needsSetup);
-        // Auto-select register tab if no users exist
-        if (res.needsSetup) setActiveTab('register');
       } catch (e) {
         console.error('Failed to check auth status:', e);
       } finally {
@@ -28,14 +25,6 @@ export default function Login({ onLoginSuccess }) {
     checkStatus();
   }, []);
 
-  // Clear form when switching tabs
-  const switchTab = (tab) => {
-    setActiveTab(tab);
-    setError('');
-    setUsername('');
-    setPassword('');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -43,7 +32,7 @@ export default function Login({ onLoginSuccess }) {
 
     try {
       let result;
-      if (activeTab === 'register') {
+      if (needsSetup) {
         result = await authService.register(username, password);
       } else {
         result = await authService.login(username, password);
@@ -93,30 +82,14 @@ export default function Login({ onLoginSuccess }) {
         {/* Login Card */}
         <div className="bg-cardBg border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
           
-          {/* Tab Switcher */}
-          <div className="flex border-b border-slate-700">
-            <button
-              onClick={() => switchTab('login')}
-              className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-all ${
-                activeTab === 'login'
-                  ? 'text-neonGreen border-b-2 border-neonGreen bg-neonGreen/5'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              <LogIn size={16} />
-              Sign In
-            </button>
-            <button
-              onClick={() => switchTab('register')}
-              className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-all ${
-                activeTab === 'register'
-                  ? 'text-neonGreen border-b-2 border-neonGreen bg-neonGreen/5'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              <UserPlus size={16} />
-              Create Account
-            </button>
+          {/* Header */}
+          <div className="p-6 border-b border-slate-700 bg-slate-800/20 text-center">
+            <h2 className="text-xl font-bold text-slate-100">
+              {needsSetup ? 'Create Initial Admin' : 'Sign In'}
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">
+              {needsSetup ? 'Set up your master account to get started.' : 'Welcome back to ArbitrageX.'}
+            </p>
           </div>
 
           {/* Form */}
@@ -128,17 +101,10 @@ export default function Login({ onLoginSuccess }) {
               </div>
             )}
 
-            {activeTab === 'register' && needsSetup && (
+            {needsSetup && (
               <div className="bg-neonGreen/5 border border-neonGreen/20 text-neonGreen text-xs p-3 rounded-lg flex items-center gap-2">
                 <Shield size={14} className="shrink-0" />
                 No admin account detected. Create your first account below.
-              </div>
-            )}
-
-            {activeTab === 'register' && !needsSetup && (
-              <div className="bg-amberWarning/5 border border-amberWarning/20 text-amberWarning text-xs p-3 rounded-lg flex items-center gap-2">
-                <Shield size={14} className="shrink-0" />
-                An admin account already exists. Registration is locked to a single admin.
               </div>
             )}
 
@@ -166,9 +132,9 @@ export default function Login({ onLoginSuccess }) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={activeTab === 'register' ? 'Create a password (min 6 chars)' : 'Enter password'}
+                  placeholder={needsSetup ? 'Create a password (min 6 chars)' : 'Enter password'}
                   required
-                  minLength={activeTab === 'register' ? 6 : 1}
+                  minLength={needsSetup ? 6 : 1}
                   className="w-full bg-darkBg border border-slate-600 rounded-lg pl-10 pr-12 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-neonGreen focus:ring-1 focus:ring-neonGreen text-sm transition-all"
                 />
                 <button
@@ -183,14 +149,14 @@ export default function Login({ onLoginSuccess }) {
 
             <button
               type="submit"
-              disabled={loading || (activeTab === 'register' && !needsSetup)}
+              disabled={loading}
               className="w-full bg-neonGreen hover:bg-emerald-400 text-darkBg font-bold py-3 rounded-lg text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-neonGreen/20 hover:shadow-neonGreen/30"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-darkBg/30 border-t-darkBg rounded-full animate-spin" />
               ) : (
                 <>
-                  {activeTab === 'register' ? (
+                  {needsSetup ? (
                     <><UserPlus size={16} /> Create Account</>
                   ) : (
                     <><LogIn size={16} /> Sign In</>

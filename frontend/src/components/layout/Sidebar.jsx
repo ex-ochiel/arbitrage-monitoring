@@ -16,7 +16,14 @@ const navItems = [
   { name: 'Overview', path: '/', icon: LayoutDashboard },
   { name: 'Campaigns', path: '/campaigns', icon: Target },
   { name: 'GEO Reports', path: '/geo', icon: Globe },
-  { name: 'Settings', path: '/settings', icon: Settings },
+  { 
+    name: 'Settings', 
+    icon: Settings,
+    subItems: [
+      { name: 'API Connect', path: '/settings' },
+      { name: 'Account Setting', path: '/settings/accounts', adminOnly: true }
+    ]
+  },
 ];
 
 export default function Sidebar({ user, onLogout }) {
@@ -74,9 +81,43 @@ export default function Sidebar({ user, onLogout }) {
         </div>
       )}
       
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+      <nav className="flex-1 px-4 space-y-1 overflow-y-auto pb-4">
+        {navItems.map((item, idx) => {
           const Icon = item.icon;
+          
+          if (item.subItems) {
+            return (
+              <div key={item.name} className="pt-2">
+                <div className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-500">
+                  <Icon size={18} />
+                  <span>{item.name}</span>
+                </div>
+                <div className="ml-5 border-l border-slate-700 pl-3 mt-1 space-y-1">
+                  {item.subItems.map(subItem => {
+                    if (subItem.adminOnly && user?.role !== 'admin') return null;
+                    return (
+                      <NavLink
+                        key={subItem.path}
+                        to={subItem.path}
+                        end={subItem.path === '/settings'}
+                        className={({ isActive }) =>
+                          clsx(
+                            'block px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                            isActive 
+                              ? 'bg-slate-800 text-neonGreen' 
+                              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                          )
+                        }
+                      >
+                        {subItem.name}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+
           return (
             <NavLink
               key={item.path}

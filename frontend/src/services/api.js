@@ -81,6 +81,18 @@ export const authService = {
   checkSetupStatus: async () => {
     const response = await api.get('/auth/status');
     return response.data;
+  },
+  getUsers: async () => {
+    const response = await api.get('/auth/users');
+    return response.data;
+  },
+  createUser: async (username, password, role) => {
+    const response = await api.post('/auth/users', { username, password, role });
+    return response.data;
+  },
+  deleteUser: async (id) => {
+    const response = await api.delete(`/auth/users/${id}`);
+    return response.data;
   }
 };
 

@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../utils/prisma');
-const { JWT_SECRET } = require('../middleware/auth');
+const { JWT_SECRET, authMiddleware, isAdmin } = require('../middleware/auth');
 
 // POST /api/auth/register — Create first admin user (only works if no users exist)
 router.post('/register', async (req, res) => {
@@ -117,6 +117,81 @@ router.get('/status', async (req, res) => {
   try {
     const userCount = await prisma.user.count();
     res.json({ needsSetup: userCount === 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/auth/users — Get all users (Admin only)
+router.get('/users', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/auth/users — Create a new user (Admin only)
+router.post('/users', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { username, password, role } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required.' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+    
+    const userRole = role === 'admin' ? 'admin' : 'user';
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        username,
+        password: hashedPassword,
+        role: userRole
+      },
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        createdAt: true
+      }
+    });
+
+    res.json({ success: true, user });
+  } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Username already exists.' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/auth/users/:id — Delete a user (Admin only)
+router.delete('/users/:id', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Prevent admin from deleting themselves
+    if (id === req.user.id) {
+      return res.status(400).json({ error: 'You cannot delete your own account.' });
+    }
+
+    await prisma.user.delete({
+      where: { id }
+    });
+
+    res.json({ success: true, message: 'User deleted successfully.' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

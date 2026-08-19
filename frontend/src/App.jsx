@@ -13,6 +13,7 @@ import Recommendations from './pages/Recommendations';
 import Login from './pages/Login';
 import SyncHistory from './pages/SyncHistory';
 import CampaignProfitability from './pages/CampaignProfitability';
+import AccountSettings from './pages/AccountSettings';
 import { authService } from './services/api';
 import { AccountProvider } from './context/AccountContext';
 
@@ -106,6 +107,7 @@ function App() {
           <Route path="sync-history" element={<SyncHistory />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="settings/accounts" element={<AccountSettings />} />
         </Route>
 
         {/* Catch-all */}
