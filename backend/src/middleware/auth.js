@@ -6,6 +6,12 @@ const authMiddleware = (req, res, next) => {
   // Skip auth for healthcheck
   if (req.path === '/health') return next();
 
+  // Allow cron-job.org or automated scripts to bypass JWT if they provide the correct CRON_SECRET
+  const cronSecret = process.env.CRON_SECRET || 'arbitragex-cron-secret-123';
+  if (req.path === '/sync/manual' && req.query.cron_secret === cronSecret) {
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
